@@ -186,11 +186,11 @@ function openPdfDownloadBox() {
 
         if (document.getElementById('current_used_rev_number_p_id').innerText !== '') {
             // Build PDF name
-            pdfName = `Inv Tax VID${document.getElementById('current_used_rev_number_p_id').innerText} For Inv ${allInvNumber}`;
+            pdfName = `Inv Tax Thailand VID${document.getElementById('current_used_rev_number_p_id').innerText} For Inv ${allInvNumber}`;
 
         } else {
             // Build PDF name
-            pdfName = `Inv Tax VID For Inv ${allInvNumber}`;
+            pdfName = `Inv Tax Thailand VID For Inv ${allInvNumber}`;
         }
 
         // Set file name
