@@ -43,7 +43,7 @@ async function sendDataToSupabase() {
 
     try {
         const { data: existingRows, error: fetchError } = await supabase
-            .from('inv_comp_thai')
+            .from('inv_tax_thai')
             .select('name')
             .eq('name', formattedName);
 
@@ -57,7 +57,7 @@ async function sendDataToSupabase() {
 
         if (existing) {
             const { data, error } = await supabase
-                .from('inv_comp_thai')
+                .from('inv_tax_thai')
                 .update({
                     inv_tax_thai_content: htmlContent,
                     inv_tax_last_found_month_name: lastFoundMonthName,
@@ -83,7 +83,7 @@ async function sendDataToSupabase() {
 
 
             const { data, error } = await supabase
-                .from('inv_comp_thai')
+                .from('inv_tax_thai')
                 .insert([{
                     name: formattedName,
                     inv_tax_thai_content: htmlContent,
@@ -128,7 +128,7 @@ let allFetchedData = [];
 
 const fetchBatchFromSupabase = async () => {
     const { data, error } = await supabase
-        .from('inv_comp_thai')
+        .from('inv_tax_thai')
         .select('*')
         .range(0, 10000);
 
