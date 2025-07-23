@@ -184,13 +184,17 @@ function openPdfDownloadBox() {
 
         let pdfName = '';
 
+        // Get the span text inside the invoice_company_guest_name_div_class
+        const spanText = document.querySelector('.invoice_company_guest_name_div_class span')?.innerText || 'VID TRAVEL';
+
+
         if (document.getElementById('current_used_rev_number_p_id').innerText !== '') {
             // Build PDF name
-            pdfName = `Inv Tax Thailand VID${document.getElementById('current_used_rev_number_p_id').innerText} For Inv ${allInvNumber}`;
+            pdfName = `Inv Tax ${spanText}${document.getElementById('current_used_rev_number_p_id').innerText} Thailand For Inv ${allInvNumber}`;
 
         } else {
             // Build PDF name
-            pdfName = `Inv Tax Thailand VID For Inv ${allInvNumber}`;
+            pdfName = `Inv Tax ${spanText} Thailand For Inv ${allInvNumber}`;
         }
 
         // Set file name
