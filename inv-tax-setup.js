@@ -437,6 +437,23 @@ function showOverlay(clickedInputDropdownIdName) {
     clickedInputDropdown.classList.add('show'); // Show the clicked input dropdown
     clickedInputDropdown.style.transition = 'transform 0.2s ease-in-out'; // Ensure transform transition is smooth
 
+
+    // Reset selection order when opening dropdown
+    if (clickedInputDropdownIdName === 'import_supabase_inv_comp_indo_data_names_dropdown') {
+        inv_comp_indo_selectionOrder = [];
+
+        // Clear all order indicators
+        const container = document.getElementById("all_supabase_stored_inv_comp_indo_data_names_for_importing_data_div");
+        if (container) {
+            container.querySelectorAll('.order-indicator').forEach(indicator => indicator.remove());
+            container.querySelectorAll('h3').forEach(h3 => {
+                h3.removeAttribute('data-order');
+                h3.style.position = '';
+            });
+        }
+    }
+
+
     overlayLayer = document.createElement('div'); // Create a new overlay element
     overlayLayer.className = 'black_overlay'; // Set the class name for styling
     overlayLayer.onclick = hideOverlay; // Set the click event listener to hide the overlay when clicked outside
@@ -840,8 +857,8 @@ const printLatestFullMonthName = () => {
 
 
 
-
-
+// Global variable to track selection order
+let inv_comp_indo_selectionOrder = [];
 
 // Function to import content for selected name
 const inv_comp_indo_importContentForSelectedName = (clickedGoogleSheetDataName) => {
@@ -849,11 +866,31 @@ const inv_comp_indo_importContentForSelectedName = (clickedGoogleSheetDataName) 
     playSoundEffect('click');
 
     if (clickedGoogleSheetDataName.style.backgroundColor === 'rgb(0, 155, 0)') {
-
-
-        // Set the background color and text color of the clicked <h3> element
+        // Deselect: change back to white
         clickedGoogleSheetDataName.style.backgroundColor = 'white';
         clickedGoogleSheetDataName.style.color = 'black';
+
+        // Remove from selection order
+        const index = inv_comp_indo_selectionOrder.indexOf(clickedGoogleSheetDataName);
+        if (index > -1) {
+            inv_comp_indo_selectionOrder.splice(index, 1);
+        }
+
+        // Remove order indicator
+        const orderIndicator = clickedGoogleSheetDataName.querySelector('.order-indicator');
+        if (orderIndicator) {
+            orderIndicator.remove();
+        }
+        clickedGoogleSheetDataName.removeAttribute('data-order');
+
+        // Update order numbers for remaining selected items
+        inv_comp_indo_selectionOrder.forEach((h3, idx) => {
+            const indicator = h3.querySelector('.order-indicator');
+            if (indicator) {
+                indicator.textContent = idx + 1;
+            }
+            h3.setAttribute('data-order', idx + 1);
+        });
 
 
 
@@ -872,10 +909,44 @@ const inv_comp_indo_importContentForSelectedName = (clickedGoogleSheetDataName) 
 
 
     } else {
-
-        // Set the background color and text color of the clicked <h3> element
+        // Select: change to green
         clickedGoogleSheetDataName.style.backgroundColor = 'rgb(0, 155, 0)';
         clickedGoogleSheetDataName.style.color = 'white';
+
+        // Add to selection order (only if not already in the array)
+        if (!inv_comp_indo_selectionOrder.includes(clickedGoogleSheetDataName)) {
+            inv_comp_indo_selectionOrder.push(clickedGoogleSheetDataName);
+        }
+
+        // Add order indicator
+        const orderNumber = inv_comp_indo_selectionOrder.indexOf(clickedGoogleSheetDataName) + 1;
+        clickedGoogleSheetDataName.setAttribute('data-order', orderNumber);
+        clickedGoogleSheetDataName.style.position = 'relative';
+
+        // Create or update order indicator
+        let orderIndicator = clickedGoogleSheetDataName.querySelector('.order-indicator');
+        if (!orderIndicator) {
+            orderIndicator = document.createElement('span');
+            orderIndicator.className = 'order-indicator';
+            orderIndicator.style.cssText = `
+                position: absolute;
+                top: -5px;
+                right: -5px;
+                background: #ff6b6b;
+                color: white;
+                border-radius: 50%;
+                width: 20px;
+                height: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                font-weight: bold;
+                z-index: 10;
+            `;
+            clickedGoogleSheetDataName.appendChild(orderIndicator);
+        }
+        orderIndicator.textContent = orderNumber;
     }
 };
 
@@ -886,9 +957,9 @@ const inv_comp_indo_importContentForSelectedName = (clickedGoogleSheetDataName) 
 const importMultipleSelectedInvCompIndoObjects = () => {
     const mainTableDiv = document.getElementById("invoice_company_main_table_div_id");
     const container = document.getElementById("all_supabase_stored_inv_comp_indo_data_names_for_importing_data_div");
-    const h3Elements = container.querySelectorAll("h3");
 
-    const selectedH3s = Array.from(h3Elements).filter(h3 =>
+    // Use the selection order instead of DOM order
+    const selectedH3s = inv_comp_indo_selectionOrder.filter(h3 =>
         window.getComputedStyle(h3).backgroundColor === "rgb(0, 155, 0)"
     );
 
@@ -896,7 +967,7 @@ const importMultipleSelectedInvCompIndoObjects = () => {
     let rowsHTML = "";
 
     selectedH3s.forEach(h3 => {
-        const trimmedName = h3.innerText.trim();
+        const trimmedName = h3.getAttribute('data-original-name');
         const matchedObject = inv_comp_indo_allFetchedData.find(obj => obj.name === trimmedName);
 
         if (matchedObject) {
@@ -994,6 +1065,22 @@ const importMultipleSelectedInvCompIndoObjects = () => {
                     </div>
                 </div>
             `;
+
+
+
+            /* Reset all h3 element color to default (white and black) */
+            const targetDiv = document.getElementById("all_supabase_stored_inv_comp_indo_data_names_for_importing_data_div");
+
+            if (targetDiv) {
+                const h3Elements = targetDiv.querySelectorAll("h3");
+                h3Elements.forEach(h3 => {
+                    h3.style.backgroundColor = "white";
+                    h3.style.color = "black";
+                });
+            }
+
+
+
         } else {
             playSoundEffect('error');
         }
@@ -1118,6 +1205,9 @@ const importMultipleSelectedInvCompIndoObjects = () => {
     /* Make the value of the 'new_or_imported_inv_company_variable' to tell the system we're editing now */
     new_or_imported_inv_company_variable = 'imported_inv_company';
 
+
+    // Reset selection order after import
+    inv_comp_indo_selectionOrder = [];
 
 
     hideOverlay();
