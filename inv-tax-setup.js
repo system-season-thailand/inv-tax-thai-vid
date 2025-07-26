@@ -1079,13 +1079,13 @@ const importMultipleSelectedInvCompIndoObjects = () => {
                         <p class="inv_tax_number_p_class">${invNumber}</p>
                     </div>
                     <div>
-                        <p>${period}</p>
+                        <p class="${(period || "Unknown") === "Unknown" ? "red_text_color_class" : ""}">${period || "Unknown"}</p>
                     </div>
                     <div>
                         <p class="duplicate_this_element_class">${guestName}</p>
                     </div>
                     <div>
-                        <p>${cityList}</p>
+                        <p class="${(cityList || "Unknown") === "Unknown" ? "red_text_color_class" : ""}">${cityList || "Unknown"}</p>
                     </div>
                     <div style="border-right: 0.5px solid black;">
                         <p class="inv_rest_payment_or_deposit_number_p_class red_text_color_class">000</p>
