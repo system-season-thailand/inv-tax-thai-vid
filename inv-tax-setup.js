@@ -350,6 +350,20 @@ function setupDuplicateOptions(targetClass, parentClass) {
             // Call the function to apply the duplicate elements functionality
             setupDuplicateOptions("duplicate_this_element_class", "invoice_company_row_div_class");
 
+
+
+            // Attach event listeners to all editable number elements
+            attachInvNumberFormattingAndCalculation();
+
+            // Initial calculation
+            updateAutomaticTotalPrice();
+
+            // Optionally, re-apply editable and floating options functionality if needed
+            if (typeof makeDivContentEditable === 'function') makeDivContentEditable();
+            if (typeof setupDuplicateOptions === 'function') setupDuplicateOptions("duplicate_this_element_class", "invoice_company_row_div_class");
+
+            // Setup drag and drop functionality
+            setupDragAndDrop();
         }
     });
 
@@ -370,6 +384,19 @@ function setupDuplicateOptions(targetClass, parentClass) {
             // Call the function to apply the duplicate elements functionality
             setupDuplicateOptions("duplicate_this_element_class", "invoice_company_row_div_class");
 
+
+            // Attach event listeners to all editable number elements
+            attachInvNumberFormattingAndCalculation();
+
+            // Initial calculation
+            updateAutomaticTotalPrice();
+
+            // Optionally, re-apply editable and floating options functionality if needed
+            if (typeof makeDivContentEditable === 'function') makeDivContentEditable();
+            if (typeof setupDuplicateOptions === 'function') setupDuplicateOptions("duplicate_this_element_class", "invoice_company_row_div_class");
+
+            // Setup drag and drop functionality
+            setupDragAndDrop();
         }
     });
 
@@ -1109,76 +1136,9 @@ const importMultipleSelectedInvCompIndoObjects = () => {
         el.innerText = '000';
     });
 
-    // Function to update the total price
-    function updateAutomaticTotalPrice() {
-        const numberElements = document.querySelectorAll('.inv_rest_payment_or_deposit_number_p_class');
-        let total = 0;
-        numberElements.forEach(el => {
-            // Remove commas and spaces, parse as float
-            let value = parseFloat(el.innerText.replace(/,/g, '').replace(/\s/g, ''));
-            if (!isNaN(value)) {
-                total += value;
-                // Only format if the element is not currently being edited
-                if (!el.matches(':focus')) {
-                    if (value === 0) {
-                        el.innerText = '000';
-                    } else {
-                        el.innerText = value.toLocaleString();
-                    }
-                }
-            } else {
-                if (!el.matches(':focus')) {
-                    el.innerText = '000';
-                }
-            }
-        });
-
-        // Tax calculation
-        let tax = 0;
-        if (total > 7000) {
-            tax = 50;
-        } else if (total >= 4000 && total <= 7000) {
-            tax = 40;
-        } else {
-            tax = 25;
-        }
-
-        let totalWithTax = total - tax;
-        if (totalWithTax < 0) {
-            totalWithTax = 0;
-        }
-
-        const totalSpan = document.getElementById('aotumaticTotalPriceSpan');
-        if (totalSpan) {
-            totalSpan.textContent = totalWithTax === 0 ? '000' : totalWithTax.toLocaleString();
-        }
-    }
 
     // Attach event listeners to all editable number elements
-    const numberElements = document.querySelectorAll('.inv_rest_payment_or_deposit_number_p_class');
-    numberElements.forEach(el => {
-        el.addEventListener('input', updateAutomaticTotalPrice);
-
-        // Format on blur (when user finishes editing)
-        el.addEventListener('blur', () => {
-            let value = parseFloat(el.innerText.replace(/,/g, '').replace(/\s/g, ''));
-            if (!isNaN(value)) {
-                if (value === 0) {
-                    el.innerText = '000';
-                } else {
-                    el.innerText = value.toLocaleString();
-                }
-            } else {
-                el.innerText = '000';
-            }
-        });
-
-        // Handle focus to allow right-to-left typing
-        el.addEventListener('focus', () => {
-            // Don't clear the '000' - let user see it and start typing over it
-            // The cursor will be at the beginning, so typing will naturally replace the content
-        });
-    });
+    attachInvNumberFormattingAndCalculation();
 
     // Initial calculation
     updateAutomaticTotalPrice();
@@ -1314,6 +1274,80 @@ function setupDragAndDrop() {
 
 
 
+
+
+
+// Function to update the total price
+function updateAutomaticTotalPrice() {
+    const numberElements = document.querySelectorAll('.inv_rest_payment_or_deposit_number_p_class');
+    let total = 0;
+    numberElements.forEach(el => {
+        // Remove commas and spaces, parse as float
+        let value = parseFloat(el.innerText.replace(/,/g, '').replace(/\s/g, ''));
+        if (!isNaN(value)) {
+            total += value;
+            // Only format if the element is not currently being edited
+            if (!el.matches(':focus')) {
+                if (value === 0) {
+                    el.innerText = '000';
+                } else {
+                    el.innerText = value.toLocaleString();
+                }
+            }
+        } else {
+            if (!el.matches(':focus')) {
+                el.innerText = '000';
+            }
+        }
+    });
+
+    // Tax calculation
+    let tax = 0;
+    if (total > 7000) {
+        tax = 50;
+    } else if (total >= 4000 && total <= 7000) {
+        tax = 40;
+    } else {
+        tax = 25;
+    }
+
+    let totalWithTax = total - tax;
+    if (totalWithTax < 0) {
+        totalWithTax = 0;
+    }
+
+    const totalSpan = document.getElementById('aotumaticTotalPriceSpan');
+    if (totalSpan) {
+        totalSpan.textContent = totalWithTax === 0 ? '000' : totalWithTax.toLocaleString();
+    }
+}
+
+
+
+
+// Function to Attach event listeners to all editable number elements
+function attachInvNumberFormattingAndCalculation() {
+    const numberElements = document.querySelectorAll('.inv_rest_payment_or_deposit_number_p_class');
+
+    numberElements.forEach(el => {
+        // Prevent duplicate listeners by removing any existing ones (optional safeguard)
+        el.removeEventListener('input', updateAutomaticTotalPrice);
+        el.addEventListener('input', updateAutomaticTotalPrice);
+
+        el.removeEventListener('blur', formatNumberElement);
+        el.addEventListener('blur', formatNumberElement);
+    });
+
+    function formatNumberElement(e) {
+        const el = e.target;
+        let value = parseFloat(el.innerText.replace(/,/g, '').replace(/\s/g, ''));
+        if (!isNaN(value)) {
+            el.innerText = value === 0 ? '000' : value.toLocaleString();
+        } else {
+            el.innerText = '000';
+        }
+    }
+}
 
 
 
