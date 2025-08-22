@@ -5,7 +5,7 @@ const inv_comp_indo_fetchBatchFromSupabase = async () => {
     const batchSize = 1000;            // How many rows to fetch per request
     let start = 0;                     // Starting index for the current batch
 
-    allFetchedData = [];               // Reset the global cache before refilling
+    inv_comp_indo_allFetchedData = [];               // Reset the global cache before refilling
 
     while (true) {
         const { data, error } = await supabase
@@ -24,7 +24,7 @@ const inv_comp_indo_fetchBatchFromSupabase = async () => {
         }
 
         // Map and push current batch into the global store
-        allFetchedData.push(
+        inv_comp_indo_allFetchedData.push(
             ...data.map(row => ({
                 name: row.name?.trim(),
                 content: row.inv_company_thai_content?.trim()
