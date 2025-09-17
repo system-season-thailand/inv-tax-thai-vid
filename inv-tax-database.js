@@ -13,10 +13,6 @@ async function sendDataToSupabase() {
 
 
 
-
-    const htmlContent = cleanHTML(document.getElementById("whole_invoice_company_section_id").innerHTML);
-
-
     /* Get the found month in the inv company data */
     const lastFoundMonthName = printLatestFullMonthName();
 
@@ -56,6 +52,11 @@ async function sendDataToSupabase() {
 
 
         if (existing) {
+
+            /* Prepare for the storing the html content */
+            const htmlContent = cleanHTML(document.getElementById("whole_invoice_company_section_id").innerHTML);
+
+
             const { data, error } = await supabase
                 .from('inv_tax_thai')
                 .update({
@@ -80,6 +81,10 @@ async function sendDataToSupabase() {
                 const currentStoredRev = parseInt(revNumValue.innerText, 10) || 0;
                 revNumValue.innerText = `${currentStoredRev + 1}`;
             }
+
+
+            /* Prepare for the storing the html content */
+            const htmlContent = cleanHTML(document.getElementById("whole_invoice_company_section_id").innerHTML);
 
 
             const { data, error } = await supabase
@@ -151,7 +156,7 @@ const fetchBatchFromSupabase = async () => {
         }
 
         start += batchSize; // Move to the next batch
-    }  
+    }
 };
 
 const loadAllData = async () => {
