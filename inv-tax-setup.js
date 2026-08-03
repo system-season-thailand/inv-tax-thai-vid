@@ -390,8 +390,6 @@ function showOverlay(clickedInputDropdownIdName) {
 
     let clickedInputDropdown = document.getElementById(clickedInputDropdownIdName);
 
-    // Store the reference to the last clicked input field
-    lastClickedClintMovementsCityInput = document.getElementById(event.target.id);
     clickedInputDropdown.classList.add('show'); // Show the clicked input dropdown
     clickedInputDropdown.style.transition = 'transform 0.2s ease-in-out'; // Ensure transform transition is smooth
 
@@ -922,28 +920,32 @@ const inv_comp_indo_importContentForSelectedName = (clickedGoogleSheetDataName) 
 
 
 /* Function to import the multiple inv tax (using saved inv company) */
-const importMultipleSelectedInvCompIndoObjects = () => {
+const importMultipleSelectedInvCompIndoObjects = async () => {
     const mainTableDiv = document.getElementById("invoice_company_main_table_div_id");
     const container = document.getElementById("all_supabase_stored_inv_comp_indo_data_names_for_importing_data_div");
 
-    // Use the selection order instead of DOM order
+    // Use the selection order instead of DOM order (a searched out name keeps its own style)
     const selectedH3s = inv_comp_indo_selectionOrder.filter(h3 =>
-        window.getComputedStyle(h3).backgroundColor === "rgb(0, 155, 0)"
+        h3.style.backgroundColor === "rgb(0, 155, 0)"
     );
+
+    /* The saved content is only read for the names that were really selected */
+    const selectedContents = await Promise.all(selectedH3s.map(
+        h3 => invCompIndoNamesLoader.fetchContentForName(h3.getAttribute('data-original-name'))
+    ));
 
     // Prepare an array to hold all rows' HTML
     let rowsHTML = "";
 
-    selectedH3s.forEach(h3 => {
-        const trimmedName = h3.getAttribute('data-original-name');
-        const matchedObject = inv_comp_indo_allFetchedData.find(obj => obj.name === trimmedName);
+    selectedH3s.forEach((h3, selectedIndex) => {
+        const importedContent = selectedContents[selectedIndex];
 
-        if (matchedObject) {
+        if (importedContent) {
             playSoundEffect('success');
 
             // Parse the imported HTML content
             const tempDiv = document.createElement("div");
-            tempDiv.innerHTML = matchedObject.content;
+            tempDiv.innerHTML = importedContent;
 
             // Extract Invoice Number
             let invNumber = tempDiv.querySelector("#current_used_inv_number_span_id")?.innerText.trim() || "";
@@ -1036,16 +1038,8 @@ const importMultipleSelectedInvCompIndoObjects = () => {
 
 
 
-            /* Reset all h3 element color to default (white and black) */
-            const targetDiv = document.getElementById("all_supabase_stored_inv_comp_indo_data_names_for_importing_data_div");
-
-            if (targetDiv) {
-                const h3Elements = targetDiv.querySelectorAll("h3");
-                h3Elements.forEach(h3 => {
-                    h3.style.backgroundColor = "white";
-                    h3.style.color = "black";
-                });
-            }
+            /* Reset all h3 element color to default (white and black), the searched out ones included */
+            invCompIndoNamesLoader.clearSelection();
 
 
 
@@ -1120,7 +1114,7 @@ const importMultipleSelectedInvCompIndoObjects = () => {
 
 
 setTimeout(() => {
-    inv_comp_indo_loadAllData();
+    invCompIndoNamesLoader.start();
 }, 500);
 
 // Drag and Drop functionality for invoice rows
