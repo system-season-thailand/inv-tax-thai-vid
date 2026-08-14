@@ -420,6 +420,10 @@ function setupDuplicateOptions(targetClass, parentClass) {
 
 
 
+/* The gap between the "SAR" and the price of a bottom row */
+const INV_TAX_PRICE_SPACING = '&nbsp;'.repeat(24);
+
+
 /* The wording of the rows added on top of the total row, one entry for every payment option */
 const invTaxPaymentLayouts = {
     total: [],
@@ -431,14 +435,12 @@ const invTaxPaymentLayouts = {
 
 /* Build one bottom row, the price is either the automatic total or a red "Price" to fill by hand */
 function buildInvTaxPaymentRowHTML(labelText, isTotalRow) {
-    const priceSpacing = '&nbsp;'.repeat(24);
-
     /* Only the total row carries the id, that is where the automatic total is written */
     const priceDivId = isTotalRow ? ' id="inv_tax_total_price_div_id"' : '';
 
     const priceParagraph = isTotalRow
-        ? `<p style="padding: 5px 0">SAR${priceSpacing}<span id="aotumaticTotalPriceSpan">0</span></p>`
-        : `<p class="red_text_color_class" style="padding: 5px 0">SAR${priceSpacing}Price</p>`;
+        ? `<p style="padding: 5px 0">SAR${INV_TAX_PRICE_SPACING}<span id="aotumaticTotalPriceSpan">0</span></p>`
+        : `<p class="inv_tax_part_payment_price_p_class red_text_color_class" style="padding: 5px 0">SAR${INV_TAX_PRICE_SPACING}Price</p>`;
 
     return `
         <div class="invoice_company_row_div_class last_invoice_company_row_div_class">
@@ -480,6 +482,104 @@ function applyInvTaxPaymentLayout(layoutName) {
     /* The rebuilt total row starts at zero, so its automatic number is written again */
     if (typeof updateAutomaticTotalPrice === 'function') updateAutomaticTotalPrice();
 }
+
+
+/* Every paragraph whose amount is typed by hand: the price of a part payment row, the total
+   row and the amount of an invoice row */
+const INV_TAX_TYPED_PRICE_SELECTOR = '.inv_tax_part_payment_price_p_class, .inv_rest_payment_or_deposit_number_p_class, #inv_tax_total_price_div_id p';
+
+
+/* How a typed amount is written back: what comes in front of it, what stands in for it while
+   it holds no digits, and the span it lives in when it is the automatic total */
+function getInvTaxTypedPriceShape(priceParagraph) {
+    if (priceParagraph.classList.contains('inv_tax_part_payment_price_p_class')) {
+        return { prefix: `SAR${INV_TAX_PRICE_SPACING}`, placeholder: 'Price', spanId: '' };
+    }
+
+    /* The total keeps its span, that is where the automatic number is written */
+    if (priceParagraph.closest('#inv_tax_total_price_div_id')) {
+        return { prefix: `SAR${INV_TAX_PRICE_SPACING}`, placeholder: '000', spanId: 'aotumaticTotalPriceSpan' };
+    }
+
+    /* The amount of an invoice row, which is nothing but the number itself */
+    return { prefix: '', placeholder: '000', spanId: '' };
+}
+
+
+/* Writes a typed amount back with its thousands separators ("12500" -> "12,500"). Everything
+   that is not a digit is dropped, so whatever stands in front of the amount is written again,
+   and the red placeholder comes back once every digit is gone.
+
+   Rewriting the text moves the caret, so the digits in front of it are counted first and it is
+   put back after the same ones */
+function formatInvTaxTypedPrice(priceParagraph) {
+    const { prefix, placeholder, spanId } = getInvTaxTypedPriceShape(priceParagraph);
+
+    const selection = window.getSelection();
+    const caretIsInside = selection && selection.rangeCount > 0 && priceParagraph.contains(selection.anchorNode);
+
+    let digitsBeforeCaret = 0;
+    if (caretIsInside) {
+        const textBeforeCaret = document.createRange();
+        textBeforeCaret.selectNodeContents(priceParagraph);
+        textBeforeCaret.setEnd(selection.anchorNode, selection.anchorOffset);
+        digitsBeforeCaret = textBeforeCaret.toString().replace(/\D/g, '').length;
+    }
+
+    /* A leading zero is dropped, but a lone "0" is left alone so it can still be typed */
+    const digits = priceParagraph.textContent.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+
+    /* Grouped without Number(), so a very long price keeps every digit it was given */
+    const formattedPrice = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const priceText = formattedPrice || placeholder;
+
+    const priceHTML = spanId ? `${prefix}<span id="${spanId}">${priceText}</span>` : `${prefix}${priceText}`;
+    if (priceParagraph.innerHTML === priceHTML) return;
+
+    priceParagraph.innerHTML = priceHTML;
+    priceParagraph.style.color = formattedPrice ? 'black' : '';
+
+    if (!caretIsInside) return;
+
+    /* The amount is the last text of the paragraph, inside the total span when there is one */
+    const priceTextNode = spanId ? priceParagraph.lastChild.firstChild : priceParagraph.firstChild;
+    if (!priceTextNode) return;
+
+    /* The caret starts in front of the whole price and walks past the digits it was after.
+       With no digits left it waits behind the placeholder instead, so the next ones typed
+       land after it and not in front of the "000" */
+    let caretOffset = formattedPrice ? priceTextNode.length - priceText.length : priceTextNode.length;
+    let seenDigits = 0;
+
+    for (let index = 0; index < priceTextNode.length && seenDigits < digitsBeforeCaret; index++) {
+        if (priceTextNode.data[index] >= '0' && priceTextNode.data[index] <= '9') {
+            seenDigits++;
+            caretOffset = index + 1;
+        }
+    }
+
+    const caretRange = document.createRange();
+    caretRange.setStart(priceTextNode, caretOffset);
+    caretRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(caretRange);
+}
+
+
+/* The amount that is being typed in is left alone, rewriting it would move the caret.
+   document.activeElement is asked as well, ":focus" only matches while the window has focus */
+function isInvTaxAmountBeingEdited(amountElement) {
+    return amountElement === document.activeElement || amountElement.matches(':focus');
+}
+
+
+/* Every typed amount is formatted while it is being written, the rows that are built later on
+   and the ones an imported invoice brings back included */
+document.addEventListener('input', (e) => {
+    const priceParagraph = e.target.closest && e.target.closest(INV_TAX_TYPED_PRICE_SELECTOR);
+
+    if (priceParagraph) formatInvTaxTypedPrice(priceParagraph);
+});
 
 
 
@@ -1344,7 +1444,7 @@ function updateAutomaticTotalPrice() {
         if (!isNaN(value)) {
             total += value;
             // Only format if the element is not currently being edited
-            if (!el.matches(':focus')) {
+            if (!isInvTaxAmountBeingEdited(el)) {
                 if (value === 0) {
                     el.innerText = '000';
                 } else {
@@ -1352,7 +1452,7 @@ function updateAutomaticTotalPrice() {
                 }
             }
         } else {
-            if (!el.matches(':focus')) {
+            if (!isInvTaxAmountBeingEdited(el)) {
                 el.innerText = '000';
             }
         }
