@@ -413,25 +413,25 @@ function setupDuplicateOptions(targetClass, parentClass) {
 
 
 
-/* The wording of the bottom rows, one entry for every payment option */
+/* The wording of the rows added on top of the total row, one entry for every payment option */
 const invTaxPaymentLayouts = {
-    total: ["TOTAL"],
+    total: [],
     one_part: ["PART OF THE PAYMENT"],
     two_parts: ["FIRST PART OF THE PAYMENT", "SECOND PART OF THE PAYMENT"],
     three_parts: ["FIRST PART OF THE PAYMENT", "SECOND PART OF THE PAYMENT", "THIRD PART OF THE PAYMENT"]
 };
 
 
-/* Build one bottom row, the price is either the automatic total or a red "???" to fill by hand */
-function buildInvTaxPaymentRowHTML(labelText, isTotalRow, isFirstRow) {
+/* Build one bottom row, the price is either the automatic total or a red "Price" to fill by hand */
+function buildInvTaxPaymentRowHTML(labelText, isTotalRow) {
     const priceSpacing = '&nbsp;'.repeat(24);
 
-    /* Only the first row carries the id, that is where the automatic total is written */
-    const priceDivId = isFirstRow ? ' id="inv_tax_total_price_div_id"' : '';
+    /* Only the total row carries the id, that is where the automatic total is written */
+    const priceDivId = isTotalRow ? ' id="inv_tax_total_price_div_id"' : '';
 
     const priceParagraph = isTotalRow
         ? `<p style="padding: 5px 0">SAR${priceSpacing}<span id="aotumaticTotalPriceSpan">0</span></p>`
-        : `<p class="red_text_color_class" style="padding: 5px 0">SAR${priceSpacing}???</p>`;
+        : `<p class="red_text_color_class" style="padding: 5px 0">SAR${priceSpacing}Price</p>`;
 
     return `
         <div class="invoice_company_row_div_class last_invoice_company_row_div_class">
@@ -454,12 +454,12 @@ function applyInvTaxPaymentLayout(layoutName) {
     const currentPaymentRows = mainTableDiv.querySelectorAll('.last_invoice_company_row_div_class');
     if (currentPaymentRows.length === 0) return;
 
-    const rowLabels = invTaxPaymentLayouts[layoutName] || invTaxPaymentLayouts.total;
-    const isTotalLayout = layoutName === 'total';
+    const partLabels = invTaxPaymentLayouts[layoutName] || invTaxPaymentLayouts.total;
 
-    const paymentRowsHTML = rowLabels
-        .map((labelText, index) => buildInvTaxPaymentRowHTML(labelText, isTotalLayout, index === 0))
-        .join('');
+    /* The parts of the payment sit on top, the total row always stays the last one */
+    const paymentRowsHTML = partLabels
+        .map(labelText => buildInvTaxPaymentRowHTML(labelText, false))
+        .join('') + buildInvTaxPaymentRowHTML("TOTAL", true);
 
     /* The new rows take the place of the old ones, then the old ones leave the table */
     currentPaymentRows[0].insertAdjacentHTML('beforebegin', paymentRowsHTML);
@@ -470,7 +470,7 @@ function applyInvTaxPaymentLayout(layoutName) {
     if (typeof setupDuplicateOptions === 'function') setupDuplicateOptions("duplicate_this_element_class", "invoice_company_row_div_class");
     if (typeof setupDragAndDrop === 'function') setupDragAndDrop();
 
-    /* The automatic total is only filled when the plain total row is back */
+    /* The rebuilt total row starts at zero, so its automatic number is written again */
     if (typeof updateAutomaticTotalPrice === 'function') updateAutomaticTotalPrice();
 }
 
@@ -1175,7 +1175,7 @@ const importMultipleSelectedInvCompIndoObjects = async () => {
     mainTableDiv.innerHTML = rowsHTML;
 
     // Append the total row, the same row the payment options rebuild later on
-    const totalRow = buildInvTaxPaymentRowHTML("TOTAL", true, true);
+    const totalRow = buildInvTaxPaymentRowHTML("TOTAL", true);
     mainTableDiv.innerHTML += totalRow;
 
     // Ensure all .inv_rest_payment_or_deposit_number_p_class elements have '000' as initial value
