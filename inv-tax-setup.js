@@ -176,6 +176,10 @@ function openPdfDownloadBox() {
 
 
 
+/* The floating options menu that is open at the moment, no menu is open when it is null */
+let activeMenu = null;
+
+
 /* Function to duplicate the clicked row */
 function setupDuplicateOptions(targetClass, parentClass) {
     // Create the floating options menu
@@ -237,6 +241,52 @@ function setupDuplicateOptions(targetClass, parentClass) {
     optionsMenu.appendChild(deleteDivOption);
     document.body.appendChild(optionsMenu);
 
+
+
+
+    /* The bottom row splits the payment instead of copying rows, so it gets its own menu */
+    const paymentOptionsMenu = document.createElement("div");
+    paymentOptionsMenu.style.cssText = optionsMenu.style.cssText;
+
+    const paymentOptionsList = [
+        { label: "TOTAL", layout: "total", background: "darkblue" },
+        { label: "1 Part Payment", layout: "one_part", background: "darkgreen" },
+        { label: "2 Part Payment", layout: "two_parts", background: "darkgoldenrod" },
+        { label: "3 Part Payment", layout: "three_parts", background: "darkred" }
+    ];
+
+    paymentOptionsList.forEach(paymentOption => {
+        const paymentOptionDiv = document.createElement("div");
+        paymentOptionDiv.innerText = paymentOption.label;
+        paymentOptionDiv.style.cursor = "pointer";
+        paymentOptionDiv.style.padding = "8px 10px";
+        paymentOptionDiv.style.textAlign = "center";
+        paymentOptionDiv.style.fontSize = "1.2rem";
+        paymentOptionDiv.style.color = "#ffffff";
+        paymentOptionDiv.style.backgroundColor = paymentOption.background;
+        paymentOptionDiv.style.borderRadius = "3px";
+        paymentOptionDiv.style.whiteSpace = "nowrap";
+        paymentOptionDiv.style.display = "inline-flex";
+        paymentOptionDiv.style.margin = "0 5px";
+
+        paymentOptionDiv.addEventListener("click", () => {
+            // Play a sound effect
+            playSoundEffect('click');
+
+            paymentOptionsMenu.style.display = "none";
+            activeMenu = null;
+
+            applyInvTaxPaymentLayout(paymentOption.layout);
+        });
+
+        paymentOptionsMenu.appendChild(paymentOptionDiv);
+    });
+
+    document.body.appendChild(paymentOptionsMenu);
+
+
+
+
     let currentElement = null;
 
     document.querySelectorAll(`.${targetClass}`).forEach(element => {
@@ -245,20 +295,26 @@ function setupDuplicateOptions(targetClass, parentClass) {
 
             currentElement = e.target;
 
-            const rect = currentElement.getBoundingClientRect();
-            optionsMenu.style.left = `${rect.left}px`;
-            optionsMenu.style.top = `${rect.bottom + window.scrollY}px`;
+            /* The bottom row offers the payment options, every other row offers copy and delete */
+            const menuToOpen = currentElement.closest('.last_invoice_company_row_div_class')
+                ? paymentOptionsMenu
+                : optionsMenu;
 
-            optionsMenu.style.display = "block";
-            activeMenu = optionsMenu;
+            const rect = currentElement.getBoundingClientRect();
+            menuToOpen.style.left = `${rect.left}px`;
+            menuToOpen.style.top = `${rect.bottom + window.scrollY}px`;
+
+            menuToOpen.style.display = "block";
+            activeMenu = menuToOpen;
 
             e.stopPropagation();
         });
     });
 
     document.addEventListener("click", (e) => {
-        if (!optionsMenu.contains(e.target) && !e.target.classList.contains(targetClass)) {
+        if (!optionsMenu.contains(e.target) && !paymentOptionsMenu.contains(e.target) && !e.target.classList.contains(targetClass)) {
             optionsMenu.style.display = "none";
+            paymentOptionsMenu.style.display = "none";
             activeMenu = null;
         }
     });
@@ -352,6 +408,70 @@ function setupDuplicateOptions(targetClass, parentClass) {
             }
         }
     });
+}
+
+
+
+
+/* The wording of the bottom rows, one entry for every payment option */
+const invTaxPaymentLayouts = {
+    total: ["TOTAL"],
+    one_part: ["PART OF THE PAYMENT"],
+    two_parts: ["FIRST PART OF THE PAYMENT", "SECOND PART OF THE PAYMENT"],
+    three_parts: ["FIRST PART OF THE PAYMENT", "SECOND PART OF THE PAYMENT", "THIRD PART OF THE PAYMENT"]
+};
+
+
+/* Build one bottom row, the price is either the automatic total or a red "???" to fill by hand */
+function buildInvTaxPaymentRowHTML(labelText, isTotalRow, isFirstRow) {
+    const priceSpacing = '&nbsp;'.repeat(24);
+
+    /* Only the first row carries the id, that is where the automatic total is written */
+    const priceDivId = isFirstRow ? ' id="inv_tax_total_price_div_id"' : '';
+
+    const priceParagraph = isTotalRow
+        ? `<p style="padding: 5px 0">SAR${priceSpacing}<span id="aotumaticTotalPriceSpan">0</span></p>`
+        : `<p class="red_text_color_class" style="padding: 5px 0">SAR${priceSpacing}???</p>`;
+
+    return `
+        <div class="invoice_company_row_div_class last_invoice_company_row_div_class">
+            <div>
+                <p class="duplicate_this_element_class">${labelText}</p>
+            </div>
+            <div${priceDivId} style="border-right: 0.5px solid black;">
+                ${priceParagraph}
+            </div>
+        </div>
+    `;
+}
+
+
+/* Rebuild the bottom of the table with the chosen payment option */
+function applyInvTaxPaymentLayout(layoutName) {
+    const mainTableDiv = document.getElementById('invoice_company_main_table_div_id');
+    if (!mainTableDiv) return;
+
+    const currentPaymentRows = mainTableDiv.querySelectorAll('.last_invoice_company_row_div_class');
+    if (currentPaymentRows.length === 0) return;
+
+    const rowLabels = invTaxPaymentLayouts[layoutName] || invTaxPaymentLayouts.total;
+    const isTotalLayout = layoutName === 'total';
+
+    const paymentRowsHTML = rowLabels
+        .map((labelText, index) => buildInvTaxPaymentRowHTML(labelText, isTotalLayout, index === 0))
+        .join('');
+
+    /* The new rows take the place of the old ones, then the old ones leave the table */
+    currentPaymentRows[0].insertAdjacentHTML('beforebegin', paymentRowsHTML);
+    currentPaymentRows.forEach(paymentRow => paymentRow.remove());
+
+    /* The rebuilt rows need the same editing, menu and drag behaviour as the rest of the table */
+    if (typeof makeDivContentEditable === 'function') makeDivContentEditable();
+    if (typeof setupDuplicateOptions === 'function') setupDuplicateOptions("duplicate_this_element_class", "invoice_company_row_div_class");
+    if (typeof setupDragAndDrop === 'function') setupDragAndDrop();
+
+    /* The automatic total is only filled when the plain total row is back */
+    if (typeof updateAutomaticTotalPrice === 'function') updateAutomaticTotalPrice();
 }
 
 
@@ -1054,19 +1174,8 @@ const importMultipleSelectedInvCompIndoObjects = async () => {
     // Replace the content of the main table div
     mainTableDiv.innerHTML = rowsHTML;
 
-    // Append the total row with the exact structure as in the HTML
-    const totalRow = `
-        <div class="invoice_company_row_div_class last_invoice_company_row_div_class">
-            <div>
-                <p class="duplicate_this_element_class">TOTAL</p>
-            </div>
-            <div id="inv_tax_total_price_div_id" style="border-right: 0.5px solid black;">
-                <p style="padding: 5px 0">
-                    SAR&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span id="aotumaticTotalPriceSpan">0</span>
-                </p>
-            </div>
-        </div>
-    `;
+    // Append the total row, the same row the payment options rebuild later on
+    const totalRow = buildInvTaxPaymentRowHTML("TOTAL", true, true);
     mainTableDiv.innerHTML += totalRow;
 
     // Ensure all .inv_rest_payment_or_deposit_number_p_class elements have '000' as initial value
