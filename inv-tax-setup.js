@@ -252,7 +252,8 @@ function setupDuplicateOptions(targetClass, parentClass) {
         { label: "TOTAL", layout: "total", background: "darkblue" },
         { label: "1 Part Payment", layout: "one_part", background: "darkgreen" },
         { label: "2 Part Payment", layout: "two_parts", background: "darkgoldenrod" },
-        { label: "3 Part Payment", layout: "three_parts", background: "darkred" }
+        { label: "3 Part Payment", layout: "three_parts", background: "darkmagenta" },
+        { label: "Delete", deletesRow: true, background: "darkred" }
     ];
 
     paymentOptionsList.forEach(paymentOption => {
@@ -276,7 +277,13 @@ function setupDuplicateOptions(targetClass, parentClass) {
             paymentOptionsMenu.style.display = "none";
             activeMenu = null;
 
-            applyInvTaxPaymentLayout(paymentOption.layout);
+            /* The delete option drops the clicked row, the other options rebuild the bottom rows */
+            if (paymentOption.deletesRow) {
+                const clickedPaymentRow = currentElement && currentElement.closest('.last_invoice_company_row_div_class');
+                if (clickedPaymentRow) clickedPaymentRow.remove();
+            } else {
+                applyInvTaxPaymentLayout(paymentOption.layout);
+            }
         });
 
         paymentOptionsMenu.appendChild(paymentOptionDiv);
