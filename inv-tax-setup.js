@@ -281,6 +281,9 @@ function setupDuplicateOptions(targetClass, parentClass) {
             if (paymentOption.deletesRow) {
                 const clickedPaymentRow = currentElement && currentElement.closest('.last_invoice_company_row_div_class');
                 if (clickedPaymentRow) clickedPaymentRow.remove();
+
+                /* The total follows whatever parts of the payment are left */
+                if (typeof updateAutomaticTotalPrice === 'function') updateAutomaticTotalPrice();
             } else {
                 applyInvTaxPaymentLayout(paymentOption.layout);
             }
@@ -585,8 +588,14 @@ function isInvTaxAmountBeingEdited(amountElement) {
    and the ones an imported invoice brings back included */
 document.addEventListener('input', (e) => {
     const priceParagraph = e.target.closest && e.target.closest(INV_TAX_TYPED_PRICE_SELECTOR);
+    if (!priceParagraph) return;
 
-    if (priceParagraph) formatInvTaxTypedPrice(priceParagraph);
+    formatInvTaxTypedPrice(priceParagraph);
+
+    /* The total follows the parts of the payment, so it is written again while they are typed */
+    if (priceParagraph.classList.contains('inv_tax_part_payment_price_p_class')) {
+        updateAutomaticTotalPrice();
+    }
 });
 
 
@@ -1466,23 +1475,29 @@ function updateAutomaticTotalPrice() {
         }
     });
 
+    /* The parts of the payment come first: once the payment was split, the total is built from
+       what the parts add up to instead of the amounts of the invoice rows. The tax is taken off
+       it either way */
+    const partPaymentTotal = readInvTaxPartPaymentTotal();
+    const totalToTax = partPaymentTotal === null ? total : partPaymentTotal;
+
     // Tax calculation
     let tax = 0;
-    if (total >= 10000) {
+    if (totalToTax >= 10000) {
         tax = 150;
-    } else if (total >= 8000) {
+    } else if (totalToTax >= 8000) {
         tax = 130;
-    } else if (total >= 6000) {
+    } else if (totalToTax >= 6000) {
         tax = 110;
-    } else if (total >= 4000) {
+    } else if (totalToTax >= 4000) {
         tax = 90;
-    } else if (total >= 2000) {
+    } else if (totalToTax >= 2000) {
         tax = 80;
     } else {
         tax = 60;
     }
 
-    let totalWithTax = total - tax;
+    let totalWithTax = totalToTax - tax;
     if (totalWithTax < 0) {
         totalWithTax = 0;
     }
@@ -1491,6 +1506,23 @@ function updateAutomaticTotalPrice() {
     if (totalSpan) {
         totalSpan.textContent = totalWithTax === 0 ? '000' : totalWithTax.toLocaleString();
     }
+}
+
+
+/* What the part payment rows add up to, or null while the payment was not split and the total
+   is built from the amounts of the invoice rows instead */
+function readInvTaxPartPaymentTotal() {
+    const partPrices = document.querySelectorAll('.inv_tax_part_payment_price_p_class');
+    if (partPrices.length === 0) return null;
+
+    let partsTotal = 0;
+
+    partPrices.forEach(priceParagraph => {
+        /* Everything that is not a digit goes, the "SAR" and the thousands separators with it */
+        partsTotal += Number(priceParagraph.textContent.replace(/\D/g, '')) || 0;
+    });
+
+    return partsTotal;
 }
 
 
