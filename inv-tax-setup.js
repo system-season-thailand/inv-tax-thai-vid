@@ -493,16 +493,17 @@ const INV_TAX_TYPED_PRICE_SELECTOR = '.inv_tax_part_payment_price_p_class, .inv_
    it holds no digits, and the span it lives in when it is the automatic total */
 function getInvTaxTypedPriceShape(priceParagraph) {
     if (priceParagraph.classList.contains('inv_tax_part_payment_price_p_class')) {
-        return { prefix: `SAR${INV_TAX_PRICE_SPACING}`, placeholder: 'Price', spanId: '' };
+        return { prefix: `SAR${INV_TAX_PRICE_SPACING}`, placeholder: 'Price', spanId: '', allowsMinus: false };
     }
 
     /* The total keeps its span, that is where the automatic number is written */
     if (priceParagraph.closest('#inv_tax_total_price_div_id')) {
-        return { prefix: `SAR${INV_TAX_PRICE_SPACING}`, placeholder: '000', spanId: 'aotumaticTotalPriceSpan' };
+        return { prefix: `SAR${INV_TAX_PRICE_SPACING}`, placeholder: '000', spanId: 'aotumaticTotalPriceSpan', allowsMinus: false };
     }
 
-    /* The amount of an invoice row, which is nothing but the number itself */
-    return { prefix: '', placeholder: '000', spanId: '' };
+    /* The amount of an invoice row, which is nothing but the number itself and can be taken
+       off the total instead of added to it ("-300") */
+    return { prefix: '', placeholder: '000', spanId: '', allowsMinus: true };
 }
 
 
@@ -513,7 +514,7 @@ function getInvTaxTypedPriceShape(priceParagraph) {
    Rewriting the text moves the caret, so the digits in front of it are counted first and it is
    put back after the same ones */
 function formatInvTaxTypedPrice(priceParagraph) {
-    const { prefix, placeholder, spanId } = getInvTaxTypedPriceShape(priceParagraph);
+    const { prefix, placeholder, spanId, allowsMinus } = getInvTaxTypedPriceShape(priceParagraph);
 
     const selection = window.getSelection();
     const caretIsInside = selection && selection.rangeCount > 0 && priceParagraph.contains(selection.anchorNode);
@@ -526,12 +527,19 @@ function formatInvTaxTypedPrice(priceParagraph) {
         digitsBeforeCaret = textBeforeCaret.toString().replace(/\D/g, '').length;
     }
 
+    const typedText = priceParagraph.textContent;
+
+    /* An amount that is taken off the total is negative as soon as it was given a minus */
+    const minusSign = allowsMinus && typedText.includes('-') ? '-' : '';
+
     /* A leading zero is dropped, but a lone "0" is left alone so it can still be typed */
-    const digits = priceParagraph.textContent.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+    const digits = typedText.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
 
     /* Grouped without Number(), so a very long price keeps every digit it was given */
     const formattedPrice = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    const priceText = formattedPrice || placeholder;
+
+    /* The minus stands on its own while there is no digit behind it yet, so it can be typed first */
+    const priceText = formattedPrice ? `${minusSign}${formattedPrice}` : (minusSign || placeholder);
 
     const priceHTML = spanId ? `${prefix}<span id="${spanId}">${priceText}</span>` : `${prefix}${priceText}`;
     if (priceParagraph.innerHTML === priceHTML) return;
@@ -545,10 +553,10 @@ function formatInvTaxTypedPrice(priceParagraph) {
     const priceTextNode = spanId ? priceParagraph.lastChild.firstChild : priceParagraph.firstChild;
     if (!priceTextNode) return;
 
-    /* The caret starts in front of the whole price and walks past the digits it was after.
-       With no digits left it waits behind the placeholder instead, so the next ones typed
-       land after it and not in front of the "000" */
-    let caretOffset = formattedPrice ? priceTextNode.length - priceText.length : priceTextNode.length;
+    /* The caret starts in front of the first digit, behind the minus when there is one, and
+       walks past the digits it was after. With no digits left it waits behind the placeholder
+       instead, so the next ones typed land after it and not in front of the "000" */
+    let caretOffset = formattedPrice ? priceTextNode.length - formattedPrice.length : priceTextNode.length;
     let seenDigits = 0;
 
     for (let index = 0; index < priceTextNode.length && seenDigits < digitsBeforeCaret; index++) {
